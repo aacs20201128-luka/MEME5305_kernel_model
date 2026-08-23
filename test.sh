@@ -12,7 +12,19 @@ sudo depmod -a
 sudo modprobe chardev_abc #我給 module 名稱，你幫我找檔案、處理 dependency 再載入。
 lsmod | grep chardev_abc #載入狀態與相依關係
 lsmod | grep request #沒有相依因為chardev_abc沒使用request_test();
+cat /proc/devices | grep pico_sensor_abc #取得系統分配的 Major 號碼
+read -p "input major number: " major
+sudo mknod /dev/pico_sensor c "$major" 0 #手動建立設備檔
+sudo chmod 666 /dev/pico_sensor
+ls /dev/pico_sensor -l
+make -C $(pwd)/user_space
+./user_space/application "/dev/pico_sensor" "hello arth"
+echo "arth hello" > /dev/pico_sensor
+cat /dev/pico_sensor
+#Kernel module 開發很常遇到這種情況：code 改對了，但 kernel 還在跑舊的 .ko。 
+sudo rm /dev/pico_sensor
 sudo modprobe -r chardev_abc #會嘗試卸載，並且把因為它而載入、而且目前沒有被其他 module 使用的相依模組一起卸載。
+make -C $(pwd)/user_space clean
 dmesg |tail -5
 #echo "chardev_abc" > /etc/modules-load.d/master.conf #一開機就自動將模組載入
 
