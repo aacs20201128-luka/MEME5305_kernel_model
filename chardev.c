@@ -15,6 +15,7 @@
 #include <linux/errno.h>// Linux 核心錯誤碼定義，如 EINVAL、ENOMEM、EIO
 #include <linux/device.h>//告別手動 mknod
 #include <linux/signal.h>//發送 Signal 給 User Space
+#include <linux/sched.h>//Wait Queue
 
 #include "slave.h"
 #include "request.h"
@@ -45,6 +46,9 @@ static struct file_operations fops = {
 };
 static struct class *charmodule_class;
 
+DECLARE_WAIT_QUEUE_HEAD(wq);
+static int bSleep;
+
 static int device_open(struct inode *inode, struct file *file){
     //static int counter = 0;
     //sprintf(Message, "counter=%d\n", counter++);
@@ -55,6 +59,9 @@ static int device_release(struct inode *inode, struct file *file){
     return 0;
 }
 static ssize_t device_read(struct file *filp, char *buffer, size_t length, loff_t *offset){
+    bSleep=0;
+    wait_event_interruptible(wq, bSleep);//ProcessA 注意:每次read都會卡住
+    
     //buffer 和 length 來自 user space；但 filp、offset 是 kernel 幫你轉換/準備好的。
     if (*msg_Ptr == 0)return 0;
     size_t len = strlen(msg_Ptr);
@@ -70,6 +77,9 @@ static ssize_t device_write(struct file *filp, const char *buff, size_t len, lof
     }
     Message[i] = '\0';
     msg_Ptr = Message;
+
+    bSleep=1;
+    wake_up_interruptible(&wq);//ProcessB
 
     struct task_struct *p;
     p=pid_task(find_vpid(user_pid), PIDTYPE_PID);
@@ -138,3 +148,14 @@ MODULE_DESCRIPTION("custom kernel space module");
 // 找到對應的 task_struct
 // 把數字 PID 轉成 struct pid *
 // PIDTYPE_PID 表示：把這個 PID 當作一般 task PID 來找。
+
+
+//Process A 進入 driver 的 read()，執行到wait_event_interruptible()時因為bSleep == 0而睡眠；
+// 之後另一個kernel執行路徑，例如Process B 呼叫 write()，把 bSleep 設成 1 並
+// 呼叫 wake_up_interruptible()，於是 Process A 被喚醒並繼續執行，
+// 從它原本睡著的那個等待點附近繼續，不是從 read() 最前面重新開始。
+// 不等於「A 現在立刻開始跑」，比較像把 A 從「睡覺中」叫醒，丟回「等 CPU 執行」的隊伍裡。
+// 另外，Process B 呼叫 wake_up_interruptible(&wq) 之後，B 自己通常會繼續往下跑
+// bSleep 是全域共用的一個旗標。所以一次 echo 很可能就把多個卡在同一個 wq 的 cat 都叫醒。
+//如果示範 mutex，就用 mutex_lock() 等待；
+// 如果示範 wait queue，就用 wait_event_interruptible() + bSleep 等待。

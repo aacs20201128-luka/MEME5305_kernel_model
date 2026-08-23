@@ -35,12 +35,12 @@ int main(int argc, char *argv[]){
     //先write後read避免chardev.c內的read讀空，除非在open事先賦值。
     //strlen(info)+1那就會連'\0'一起傳不是錯，但前提是你的kernel driver有把這個byte算進len
     len = write(file_desc , info , strlen(info));
-    printf("write len:%d\n", len);
+    printf("application_write() len:%d\n", len);
     if(len < 0){
         perror("Write fail:");//perror()會自動把「系統錯誤原因」印出來。
     }
     len = read(file_desc , message , sizeof(message) - 1);//最多讀99bytes
-    printf("message:%s, len:%d\n",message, len);
+    printf("application_read() message:%s, len:%d\n",message, len);
     close(file_desc);
 
     return 0;
