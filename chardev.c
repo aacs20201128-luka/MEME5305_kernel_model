@@ -2,6 +2,7 @@
 //ls -la /sys/module/
 //vim /usr/include/linux/stat.h
 //vim usr/src/linux-headers-6.18.34+rpt-common-rpi/include/linux/kern_levels.h
+//vim /sys/class/charmodule_class
 #include <linux/kernel.h>//為了使用 printk 等核心日誌函式。
 #include <linux/module.h>//開發 Kernel Module 必備。
 #include <linux/init.h>//為了使用 __init 和 __exit 巨集。
@@ -10,16 +11,19 @@
 #include <linux/fs.h>//註冊 API (新版) dev_t、register_chrdev_region、alloc_chrdev_region
 #include <linux/cdev.h>//cdev_init()初始化struct cdev，之後再交給cdev_add()加進系統。
 #include <linux/uaccess.h>// put_user(), get_user(), copy_to_user(), copy_from_user()
-#include <linux/string.h> // strlen(), strcpy(), strcmp(), memset()...
+#include <linux/string.h>// strlen(), strcpy(), strcmp(), memset()...
+#include <linux/errno.h>// Linux 核心錯誤碼定義，如 EINVAL、ENOMEM、EIO
+#include <linux/device.h>//告別手動 mknod
+#include <linux/signal.h>//發送 Signal 給 User Space
 
 #include "slave.h"
 #include "request.h"
 
-static int myint = 3;
+static int user_pid = 3;
 static char *mystring = "abc";
-module_param(myint, int , S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+module_param(user_pid, int , S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 module_param(mystring, charp, 0644);
-MODULE_PARM_DESC(myint,"parameters1_int");
+MODULE_PARM_DESC(user_pid,"parameters1_int");
 MODULE_PARM_DESC(mystring,"parameters2_charp");
 
 static dev_t devno=0;
@@ -39,6 +43,7 @@ static struct file_operations fops = {
     .open = device_open,
     .release = device_release
 };
+static struct class *charmodule_class;
 
 static int device_open(struct inode *inode, struct file *file){
     //static int counter = 0;
@@ -65,6 +70,11 @@ static ssize_t device_write(struct file *filp, const char *buff, size_t len, lof
     }
     Message[i] = '\0';
     msg_Ptr = Message;
+
+    struct task_struct *p;
+    p=pid_task(find_vpid(user_pid), PIDTYPE_PID);
+    send_sig( SIGUSR1, p, 0);//使用者自訂信號1
+
     return i;
 }
 
@@ -84,13 +94,19 @@ static int __init hello_module(void){
     }
     printk("I was assigned major number %d.\n", Major);
 
+    charmodule_class = class_create("charmodule_class");//設備類別
+    device_create(charmodule_class, NULL, devno, NULL, "pico_sensor");//設備節點
+
     return 0;
 }
 
 static void __exit bye_module(void){
     printk("Bye\n");
-
     cdev_del(&mycdev);
+
+    device_destroy(charmodule_class, devno);
+    class_destroy(charmodule_class);
+
     unregister_chrdev_region(devno , 1);
     printk("unregister_chrdev\n");
 }
@@ -114,3 +130,11 @@ MODULE_DESCRIPTION("custom kernel space module");
 //  文字資料：補 '\0' 很安全，重複補也沒關係。
 // if (len > length) len = length;防止kernel複製的資料量超過userspace這次read()指定的buffer長度。
 // msg_Ptr += len;因為一次 read() 不一定能把 kernel 裡的資料全部拿走。讓下一次接著讀剩下的bytes。
+
+
+//在 Linux 核心中，所有的應用程式（行程 Process）都是用一個名為 task_struct 的龐大資料結構來管理的
+// struct task_struct *p;
+// p=pid_task(find_vpid(user_pid), PIDTYPE_PID); 
+// 找到對應的 task_struct
+// 把數字 PID 轉成 struct pid *
+// PIDTYPE_PID 表示：把這個 PID 當作一般 task PID 來找。

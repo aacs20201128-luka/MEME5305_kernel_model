@@ -7,22 +7,25 @@ sudo rm -f /lib/modules/$(uname -r)/extra/*.*
 sudo cp ./*ko /lib/modules/$(uname -r)/extra/
 ls /lib/modules/$(uname -r)/extra/ -l
 sudo depmod -a
-#echo 'options chardev_abc myint=1 mystring="ABC"' | sudo tee /etc/modprobe.d/chardev_abc.conf #給 modprobe 用
+#echo 'options chardev_abc user_pid=1 mystring="ABC"' | sudo tee /etc/modprobe.d/chardev_abc.conf #給 modprobe 用
 #cat /lib/modules/$(uname -r)/modules.dep //看的是「模組檔案之間的相依關係」。
 sudo modprobe chardev_abc #我給 module 名稱，你幫我找檔案、處理 dependency 再載入。
 lsmod | grep chardev_abc #載入狀態與相依關係
 lsmod | grep request #沒有相依因為chardev_abc沒使用request_test();
 cat /proc/devices | grep pico_sensor_abc #取得系統分配的 Major 號碼
-read -p "input major number: " major
-sudo mknod /dev/pico_sensor c "$major" 0 #手動建立設備檔
+#read -p "input major number: " major
+#sudo mknod /dev/pico_sensor c "$major" 0 #手動建立設備檔
 sudo chmod 666 /dev/pico_sensor
+ls /sys/class/charmodule_class -l
 ls /dev/pico_sensor -l
 make -C $(pwd)/user_space
-./user_space/application "/dev/pico_sensor" "hello arth"
-echo "arth hello" > /dev/pico_sensor
-cat /dev/pico_sensor
+./user_space/application "/dev/pico_sensor" "hello arth" & #背景執行不卡終端機
+pid=$! #代表「最近一個背景執行程序的 PID」。
+echo "$pid" | sudo tee /sys/module/chardev_abc/parameters/user_pid #module的parameters
+echo "為了解pause寫個東西進去" > /dev/pico_sensor #pause() 馬上被喚醒，接著立刻往下執行
+cat /dev/pico_sensor #"hello arth"
 #Kernel module 開發很常遇到這種情況：code 改對了，但 kernel 還在跑舊的 .ko。 
-sudo rm /dev/pico_sensor
+#sudo rm /dev/pico_sensor
 sudo modprobe -r chardev_abc #會嘗試卸載，並且把因為它而載入、而且目前沒有被其他 module 使用的相依模組一起卸載。
 make -C $(pwd)/user_space clean
 dmesg |tail -5
