@@ -51,10 +51,10 @@ int main(int argc, char *argv[]){
     uint32_t *RIOBase  = PERIBase + 0xE0000 / 4;//RIO暫存器基底位址;上面有4個同一組RIO暫存器的不同操作入口
     uint32_t *PADBase  = PERIBase + 0xF0000 / 4;//PAD暫存器基底位址
     uint32_t *pad      = PADBase + 1;//這裡 +1 就是跳過 Offset 0x00 的 VOLTAGE_SELECT Register。
-    printf("PERIBase:%x\n", PERIBase);
-    printf("GPIOBase:%x\n", GPIOBase);
-    printf("RIOBase:%x\n", RIOBase);
-    printf("PADBase:%x\n", PADBase);
+    printf("PERIBase:%p\n", PERIBase);
+    printf("GPIOBase:%p\n", GPIOBase);
+    printf("RIOBase:%p\n", RIOBase);
+    printf("PADBase:%p\n", PADBase);
 
     uint32_t pin = 20;  // GPIO20
     uint32_t fn = 5;    // SYS_RIO

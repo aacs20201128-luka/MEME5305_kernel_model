@@ -16,6 +16,8 @@
 #include <linux/device.h>//告別手動 mknod
 #include <linux/signal.h>//發送 Signal 給 User Space
 #include <linux/sched.h>//Wait Queue
+#include <linux/io.h>//for ioremap(), iounmap(), readl(), writel()
+#include <linux/delay.h> //可使用 msleep()、mdelay()、udelay() 等延遲函式
 
 #include "slave.h"
 #include "request.h"
@@ -49,14 +51,46 @@ static struct class *charmodule_class;
 DECLARE_WAIT_QUEUE_HEAD(wq);
 static int bSleep;
 
+volatile uint32_t *PERIBase;//先宣告之後再賦值
+volatile uint32_t *GPIOBase;
+volatile uint32_t *RIOBase;
+volatile uint32_t *PADBase;
+volatile uint32_t *pad;
+typedef struct{
+	uint32_t status;
+	uint32_t ctrl;
+}GPIOregs;
+#define GPIO ((GPIOregs*)GPIOBase)
+typedef struct{
+	uint32_t Out;
+	uint32_t OE;
+	uint32_t In;
+	uint32_t InSync;
+}rioregs;
+#define rio ((rioregs *)RIOBase)
+#define rioXOR ((rioregs *)(RIOBase + 0x1000 / 4))
+#define rioSET ((rioregs *)(RIOBase + 0x2000 / 4))
+#define rioCLR ((rioregs *)(RIOBase + 0x3000 / 4))
+uint32_t pin = 20;
+uint32_t fn = 5;
+
 static int device_open(struct inode *inode, struct file *file){
     //static int counter = 0;
     //sprintf(Message, "counter=%d\n", counter++);
     //msg_Ptr = Message;
+
+	GPIO[pin].ctrl=fn;
+	pad[pin] = 0x10;//4mA
+	rioSET->OE = 1 << pin;
+	rioSET->Out = 1 << pin;
+    msleep(1000);
+
     return 0;
 }
 static int device_release(struct inode *inode, struct file *file){
-    return 0;
+    rioCLR->Out = 1 << pin;   // 先變 LOW
+    rioCLR->OE  = 1 << pin;   // 再關閉 output enable
+	return 0;
 }
 static ssize_t device_read(struct file *filp, char *buffer, size_t length, loff_t *offset){
     bSleep=0;
@@ -107,6 +141,19 @@ static int __init hello_module(void){
     charmodule_class = class_create("charmodule_class");//設備類別
     device_create(charmodule_class, NULL, devno, NULL, "pico_sensor");//設備節點
 
+	PERIBase = ioremap(0x1f00000000, 64 * 1024 *1024);
+	if(PERIBase == NULL)printk("ioremap() fail\n");
+	GPIOBase = PERIBase + 0xD0000 / 4;
+	RIOBase = PERIBase + 0xE0000 / 4;	
+	PADBase = PERIBase + 0xF0000 / 4;
+	pad = PADBase + 1;
+	printk("PERIBase:%px\n", PERIBase);	
+	printk("GPIOBase:%px\n", GPIOBase);
+    printk("RIOBase:%px\n", RIOBase);
+    printk("PADBase:%px\n", PADBase);
+    printk("pad:%px\n", pad);
+
+
     return 0;
 }
 
@@ -119,6 +166,8 @@ static void __exit bye_module(void){
 
     unregister_chrdev_region(devno , 1);
     printk("unregister_chrdev\n");
+
+	iounmap(PERIBase);
 }
 
 module_init(hello_module);
@@ -159,3 +208,17 @@ MODULE_DESCRIPTION("custom kernel space module");
 // bSleep 是全域共用的一個旗標。所以一次 echo 很可能就把多個卡在同一個 wq 的 cat 都叫醒。
 //如果示範 mutex，就用 mutex_lock() 等待；
 // 如果示範 wait queue，就用 wait_event_interruptible() + bSleep 等待。
+
+//每個直接指向硬體暫存器的指標，都應保留適當的 MMIO 存取語意。
+//  在一般 C / user space 中，這類 mmap() 後取得的 MMIO 指標通常會宣告成 volatile，
+//  避免編譯器把對硬體暫存器的讀寫最佳化掉。
+//  在 Linux kernel 中，MMIO 位址通常會另外標記成 __iomem，以區分一般記憶體指標。
+
+//sprintf() 和 sscanf() 是把原本 printf() / scanf() 對「終端機」做的事情，改成對「字串」做。
+
+//Linux kernel 為了避免洩漏 kernel pointer，%p 預設會 hash pointer。
+//  要看真正的 pointer，改成 %px
+
+//mmap() 是讓 user space 程式把某段檔案或實體記憶體對應到自己的虛擬位址空間；
+//  mmap() 不只用來映射 MMIO，也可以映射一般檔案；
+//ioremap() 則主要就是給 kernel 映射 I/O/MMIO register 用的。

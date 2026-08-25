@@ -41,11 +41,15 @@ echo "解 application 的 read" > /dev/pico_sensor
 wait "$app_pid" 2>/dev/null
 #cat /dev/pico_sensor & #"hello arth"
 
+#只測試open和release
+exec 3<> /dev/pico_sensor   #開啟 /dev/pico_sensor，並把它綁定到檔案描述符 fd 3；
+exec 3>&-                   #關閉檔案描述符 fd 3；
+
 #Kernel module 開發很常遇到這種情況：code 改對了，但 kernel 還在跑舊的 .ko。 
 #sudo rm /dev/pico_sensor
 sudo modprobe -r chardev_abc #會嘗試卸載，並且把因為它而載入、而且目前沒有被其他 module 使用的相依模組一起卸載。
 make -C $(pwd)/user_space clean
-dmesg |tail -5
+dmesg |tail -10
 #echo "chardev_abc" > /etc/modules-load.d/master.conf #一開機就自動將模組載入
 
 #sudo insmod chardev_abc.ko
