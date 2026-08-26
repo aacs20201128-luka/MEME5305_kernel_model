@@ -16,5 +16,11 @@ clean:
 #-ansi 把編譯標準卡在 C90，所以你大量使用的 // 註解直接炸掉了
 mmap: mmap.c
 	$(CC) -g -Wall mmap.c -o mmap
-clean_mmap :
+mmap_c :
 	rm -f mmap
+
+#user_ioctl.c
+ioctl: user_ioctl.c
+	$(CC) -g -Wall user_ioctl.c -o ioctl
+ioctl_c :
+	rm -f ioctl
