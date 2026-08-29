@@ -24,3 +24,9 @@ ioctl: user_ioctl.c
 	$(CC) -g -Wall user_ioctl.c -o ioctl
 ioctl_c :
 	rm -f ioctl
+
+#dht11_application.c
+dht11: dht11_application.c
+	$(CC) -g -Wall dht11_application.c -o dht11_application
+dht11_c :
+	rm -f dht11_application

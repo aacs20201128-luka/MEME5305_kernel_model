@@ -22,3 +22,7 @@ KDIR=/lib/modules/$(shell uname -r)/build
 
 ioctl:
 	make -C $(KDIR) M=$(shell pwd) kernel_ioctl.ko
+
+obj-m += dht11_sensor.o
+dht11:
+	make -C $(KDIR) M=$(shell pwd) dht11_sensor.ko
