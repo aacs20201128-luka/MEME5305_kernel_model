@@ -1,0 +1,15 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "brcm,bcm2712";
+
+    fragment@0 {
+        target = <&uart0>;
+
+        __overlay__ {
+            compatible = "aacs,pico-uart";
+            status = "okay";
+        };
+    };
+};

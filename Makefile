@@ -26,3 +26,7 @@ ioctl:
 obj-m += dht11_sensor.o
 dht11:
 	make -C $(KDIR) M=$(shell pwd) dht11_sensor.ko
+
+obj-m += pico_sensor.o
+pico:
+	make -C $(KDIR) M=$(shell pwd) pico_sensor.ko

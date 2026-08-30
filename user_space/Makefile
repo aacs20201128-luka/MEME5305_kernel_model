@@ -30,3 +30,9 @@ dht11: dht11_application.c
 	$(CC) -g -Wall dht11_application.c -o dht11_application
 dht11_c :
 	rm -f dht11_application
+
+#pico_application.c
+pico: pico_application.c
+	$(CC) -g -Wall pico_application.c -o pico_application
+pico_c :
+	rm -f pico_application
