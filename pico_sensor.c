@@ -56,6 +56,12 @@ static int pico_sensor_release(struct inode *inode, struct file *file){
 static ssize_t pico_sensor_read(struct file *filp, char __user *buffer, size_t length, loff_t *offset){
     //u32 value = readl((u8 __iomem *)UART0_Base + UART_CR_OFFSET);
     int i = 0;
+
+    // 先清掉 RX FIFO 裡目前殘留的舊資料
+    while (!(readl((u8 __iomem *)UART0_Base + UART_FR_OFFSET) & (1 << 4))) {
+        readl((u8 __iomem *)UART0_Base + UART_DR_OFFSET);
+    }
+
     while(i < sizeof(Message)){
         int timeout = 1000000;
         while (readl((u8 __iomem *)UART0_Base + UART_FR_OFFSET) & (1 << 4)) { // RXFE = 1
