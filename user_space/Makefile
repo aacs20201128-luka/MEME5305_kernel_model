@@ -25,9 +25,17 @@ ioctl: user_ioctl.c
 ioctl_c :
 	rm -f ioctl
 
+MARIADB_FLAGS = $(shell mariadb_config --cflags --libs)
+DB_DIR = ../mariadb
+
 #dht11_application.c
-dht11: dht11_application.c
-	$(CC) -g -Wall dht11_application.c -o dht11_application
+dht11: dht11_application.c $(DB_DIR)/mariadb.c $(DB_DIR)/mariadb.h
+	$(CC) -g -Wall \
+	dht11_application.c \
+	$(DB_DIR)/mariadb.c \
+	-I$(DB_DIR) \
+	-o dht11_application \
+	$(MARIADB_FLAGS)
 dht11_c :
 	rm -f dht11_application
 
