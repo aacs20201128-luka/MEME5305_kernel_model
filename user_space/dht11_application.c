@@ -7,11 +7,14 @@
 #include <signal.h>     // userspace signal 定義與處理函式，如 signal()、SIGUSR1
 
 #include "../dht11_sensor.h"
+#include "../mariadb/mariadb.h"
 
 int main(void){
     int file_desc;
     int len;
     unsigned char message[4];
+    unsigned char Temperature[2];
+    unsigned char Humidity[2];
 
     file_desc = open(DEVICE_FILE_NAME, O_RDONLY);
 
@@ -25,6 +28,26 @@ int main(void){
 
     printf("Humidity: %u.%u %%\n", message[0], message[1]);
     printf("Temperature: %u.%u C\n", message[2], message[3]);
+    
+
+    Temperature[0] = message[2];
+    Temperature[1] = message[3];
+    Humidity[0] = message[0];
+    Humidity[1] = message[1];
+    if(connection_mariadb()){
+        //perror("connection_mariadb");//perror() 比較適合搭配 errno 的系統呼叫錯誤；
+        fprintf(stderr, "connection_mariadb failed\n");
+        return 1;
+    } 
+    if(insert_dht11_mariadb(Temperature,Humidity)){
+        fprintf(stderr, "insert_dht11_mariadb failed\n");
+    }
+    if(select_latest_dht11_data()){
+        fprintf(stderr, "select_latest_dht11_data failed\n");
+    }
+    if(disconnection_mariadb()){
+        fprintf(stderr, "disconnection_mariadb failed\n");
+    }
 
     close(file_desc);
     return 0;
@@ -45,3 +68,6 @@ int main(void){
 // copy_to_user() // 看「位址 + 要複製幾個 Bytes」，不是看兩邊型別是否一樣
 // 但要注意：大小一樣 ≠ 資料意義一定一樣。
 //  型別不同時，還要考慮資料排列、endianness、struct padding 等問題。
+
+// stdout → 一般正常輸出
+// stderr → 錯誤訊息輸出
