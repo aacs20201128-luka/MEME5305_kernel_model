@@ -243,6 +243,24 @@ MODULE_DESCRIPTION("Pico UART sensor driver");
 //  RXFE = 1  // RX FIFO 是空的，還沒資料
 //  RXFE = 0  // RX FIFO 不是空的，有資料可以讀
 
+//##########################################################################
+///UART peripheral 做完之後，開始考慮「如果 RX 來不及處理怎麼辦」，正是從硬體介面進入通訊協議設計的下一步。
+//  不是 CPU 先讀 UARTDR，UART 才開始收資料。
+//  UARTDR 比較像是「CPU 用來把 RX FIFO 裡已經收到的資料拿出來」的資料暫存器介面。
+//  如果 CPU 一直不讀 UARTDR，UART 還是會繼續收，直到 RX FIFO 滿掉。
+//      FIFO 滿了之後對方還繼續送，就可能發生 RX overrun。
+///所以你理解得沒錯：沒有 RTS/CTS 或軟體 flow control 時，TX 可以持續送，甚至把對方 RX 撐爆。
+//  TX FIFO 的目的不是保護對方 RX，而是：
+//  讓本機 CPU 可以先把資料排隊，UART 再按照 baud rate 慢慢送出去。
+//  如果要避免把對方 RX FIFO 撐爆，就要另外靠 RTS/CTS、XON/XOFF，或自己設計 ACK/STOP 協議。
+
+// 如果雙方都沒開 FIFO，UART 還是可以正常傳輸，但 TX/RX 幾乎只能一次處理 1 byte。
+// RX 端收到資料後會先放進 RX data register；如果 CPU/driver 還沒讀走，下一個 byte 又到，
+//  就可能發生 overrun 而丟資料。
+// TX 端則需要更頻繁等待暫存器可寫，因此 CPU 負擔會比較高。
+//  簡單說，沒有 FIFO 不是不能傳，而是容錯時間更短、效率也更差。
+//##########################################################################
+
 // *offset 記錄「同一次 open() 的檔案目前讀到哪個位置」
 
 
