@@ -39,11 +39,11 @@ int main(void){
         fprintf(stderr, "connection_mariadb failed\n");
         return 1;
     } 
-    if(insert_mariadb(Temperature,Humidity)){
-        fprintf(stderr, "insert_mariadb failed\n");
+    if(insert_dht11_mariadb(Temperature,Humidity)){
+        fprintf(stderr, "insert_dht11_mariadb failed\n");
     }
-    if(selectAll_dht11_data()){
-        fprintf(stderr, "selectAll_dht11_data failed\n");
+    if(select_latest_dht11_data()){
+        fprintf(stderr, "select_latest_dht11_data failed\n");
     }
     if(disconnection_mariadb()){
         fprintf(stderr, "disconnection_mariadb failed\n");

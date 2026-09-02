@@ -38,7 +38,7 @@ int disconnection_mariadb()
     return 0;
 }
 
-int insert_mariadb(unsigned char temperature[], unsigned char humidity[])
+int insert_dht11_mariadb(unsigned char temperature[], unsigned char humidity[])
 {
     if (connect_check()) return 1;
 
@@ -64,9 +64,9 @@ int insert_mariadb(unsigned char temperature[], unsigned char humidity[])
     return 0;
 }
 
-int selectAll_dht11_data()
+int select_latest_dht11_data()
 {
-    const char *select_sql = "SELECT * FROM dht11_data";
+    const char *select_sql = "SELECT * FROM dht11_data ORDER BY created_at DESC LIMIT 1;";
     if (mysql_query(conn, select_sql) != 0) {
         fprintf(stderr, "SELECT failed: %s\n", mysql_error(conn));
         mysql_close(conn);
@@ -78,6 +78,45 @@ int selectAll_dht11_data()
         printf("id = %s\n", row[0]);
         printf("temperature = %s\n", row[1]);
         printf("humidity = %s\n", row[2]);
+    }
+    mysql_free_result(result); //釋放 SELECT 查詢結果佔用的記憶體。
+    return 0;
+}
+
+int insert_bh1750_mariadb(unsigned char lux[])
+{
+    if (connect_check()) return 1;
+
+    char sql[128];
+
+    sprintf(sql,
+        "INSERT INTO bh1750_data "
+        "(lux) "
+        "VALUES (%s)",
+        lux);
+
+    if (mysql_query(conn, sql) != 0) {
+        fprintf(stderr, "INSERT failed: %s\n", mysql_error(conn));
+        mysql_close(conn);
+        return 1;
+    }
+
+    return 0;
+}
+
+int select_latest_bh1750_data()
+{
+    const char *select_sql = "SELECT * FROM bh1750_data ORDER BY created_at DESC LIMIT 1;";
+    if (mysql_query(conn, select_sql) != 0) {
+        fprintf(stderr, "SELECT failed: %s\n", mysql_error(conn));
+        mysql_close(conn);
+        return 1;
+    }
+    MYSQL_RES *result = mysql_store_result(conn);
+    MYSQL_ROW row; //很可能會查到很多列 沒有資料了 → 回傳 NULL
+    while ((row = mysql_fetch_row(result)) != NULL) {
+        printf("id = %s\n", row[0]);
+        printf("lux = %s\n", row[1]);
     }
     mysql_free_result(result); //釋放 SELECT 查詢結果佔用的記憶體。
     return 0;

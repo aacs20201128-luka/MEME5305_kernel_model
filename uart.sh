@@ -8,6 +8,6 @@ make -C ./user_space/ pico_c
 make -C ./user_space/ pico
 while true; do
     ./user_space/pico_application
-    sleep 1
+    sleep 3
 done
 #./user_space/pico_application

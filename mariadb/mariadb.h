@@ -5,8 +5,12 @@ int connection_mariadb();
 
 int disconnection_mariadb();
 
-int insert_mariadb(unsigned char temperature[], unsigned char humidity[]);
+int insert_dht11_mariadb(unsigned char temperature[], unsigned char humidity[]);
 
-int selectAll_dht11_data();
+int select_latest_dht11_data();
+
+int insert_bh1750_mariadb(unsigned char lux[]);
+
+int select_latest_bh1750_data();
 
 #endif  //→ 結束判斷
